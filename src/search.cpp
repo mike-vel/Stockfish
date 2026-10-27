@@ -75,11 +75,23 @@ constexpr u64 NODES_LIMIT_OUTPUT = 10'000'000;
 constexpr int SEARCHEDLIST_CAPACITY = 32;
 using SearchedList                  = ValueList<Move, SEARCHEDLIST_CAPACITY>;
 
+int reductionBaseMultiplier        = 2872;
+int reductionImprovementMultiplier = 158;
+int reductionImprovementMin        = 0;
+int reductionImprovementMax        = 1576;
+int reductionAddend                = 948;
+
+TUNE(SetRange(0, 4096), reductionBaseMultiplier);
+TUNE(SetRange(0, 1024), reductionImprovementMultiplier);
+TUNE(SetRange(-2048, 0), reductionImprovementMin);
+TUNE(SetRange(0, 4096), reductionImprovementMax);
+TUNE(SetRange(0, 2048), reductionAddend);
+
 // Reductions lookup table indexed by depth or move number.
 const std::array<int, MAX_MOVES> reductions = [] {
     std::array<int, MAX_MOVES> table{};
     for (usize i = 1; i < table.size(); ++i)
-        table[i] = int(2872 / 128.0 * std::log(i));
+        table[i] = int(reductionBaseMultiplier / 128.0 * std::log(i));
     return table;
 }();
 
@@ -777,7 +789,7 @@ Value Search::Worker::search(
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
-    int   priorReduction;
+    int   priorReduction, improvement;
     Piece movedPiece;
 
     SearchedList capturesSearched;
@@ -883,7 +895,8 @@ Value Search::Worker::search(
     // false otherwise. The improving flag is used in various pruning heuristics.
     // Similarly, opponentWorsening is true if our static evaluation is better
     // for us than at the last ply.
-    improving         = ss->staticEval > (ss - 2)->staticEval;
+    improvement       = ss->staticEval - (ss - 2)->staticEval;
+    improving         = improvement > 0;
     opponentWorsening = ss->staticEval > -(ss - 1)->staticEval;
 
     // Hindsight adjustment of reductions based on static evaluation difference
@@ -1183,7 +1196,7 @@ moves_loop:  // When in check, search starts here
         // Calculate new depth for this move
         newDepth = depth - 1;
 
-        int r = reduction(improving, depth, moveCount);
+        int r = reduction(improvement, depth, moveCount);
 
         // Decrease reduction for PvNodes
         if (PvNode)
@@ -1917,9 +1930,11 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     return bestValue;
 }
 
-int Search::Worker::reduction(bool i, Depth d, int mn) const {
-    int reductionScale = reductions[d] * reductions[mn];
-    return reductionScale + !i * reductionScale * 197 / 512 + 948;
+int Search::Worker::reduction(int i, Depth d, int mn) const {
+    const int reductionScale      = reductions[d] * reductions[mn];
+    const int reductionAdjustment =
+      std::clamp(-i * reductionImprovementMultiplier, reductionImprovementMin, reductionImprovementMax);
+    return reductionScale + reductionScale * reductionAdjustment / 4096 + reductionAddend;
 }
 
 // elapsed() returns the time elapsed since the search started. If the

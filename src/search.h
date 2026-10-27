@@ -361,7 +361,7 @@ class Worker {
     template<NodeType nodeType>
     Value qsearch(Position& pos, Stack* ss, Value alpha, Value beta);
 
-    int reduction(bool i, Depth d, int mn) const;
+    int reduction(int i, Depth d, int mn) const;
 
     // Pointer to the search manager, only allowed to be called by the main thread
     SearchManager* main_manager() const {
