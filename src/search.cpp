@@ -777,7 +777,7 @@ Value Search::Worker::search(
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
-    int   priorReduction;
+    int   priorReduction, improvement;
     Piece movedPiece;
 
     SearchedList capturesSearched;
@@ -883,7 +883,8 @@ Value Search::Worker::search(
     // false otherwise. The improving flag is used in various pruning heuristics.
     // Similarly, opponentWorsening is true if our static evaluation is better
     // for us than at the last ply.
-    improving         = ss->staticEval > (ss - 2)->staticEval;
+    improvement       = ss->staticEval - (ss - 2)->staticEval;
+    improving         = improvement > 0;
     opponentWorsening = ss->staticEval > -(ss - 1)->staticEval;
 
     // Hindsight adjustment of reductions based on static evaluation difference
@@ -1183,7 +1184,7 @@ moves_loop:  // When in check, search starts here
         // Calculate new depth for this move
         newDepth = depth - 1;
 
-        int r = reduction(improving, depth, moveCount);
+        int r = reduction(improvement, depth, moveCount);
 
         // Decrease reduction for PvNodes
         if (PvNode)
@@ -1917,9 +1918,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
     return bestValue;
 }
 
-int Search::Worker::reduction(bool i, Depth d, int mn) const {
-    int reductionScale = reductions[d] * reductions[mn];
-    return reductionScale + !i * reductionScale * 197 / 512 + 948;
+int Search::Worker::reduction(int i, Depth d, int mn) const {
+    const int reductionScale = reductions[d] * reductions[mn];
+    return reductionScale + reductionScale * std::clamp(-i * 40, 0, 200) / 512 + 948;
 }
 
 // elapsed() returns the time elapsed since the search started. If the
