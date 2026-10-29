@@ -49,6 +49,7 @@ struct StateInfo {
     Key    minorPieceKey;
     Key    nonPawnKey[COLOR_NB];
     Value  nonPawnMaterial[COLOR_NB];
+    Value  simpleEval; // relative to white
     int    castlingRights;
     int    rule50;
     int    pliesFromNull;

@@ -505,6 +505,7 @@ void Position::set_state() const {
     st->nonPawnKey[WHITE] = st->nonPawnKey[BLACK] = 0;
     st->pawnKey                                   = Zobrist::noPawns;
     st->nonPawnMaterial[WHITE] = st->nonPawnMaterial[BLACK] = VALUE_ZERO;
+    st->simpleEval = VALUE_ZERO;
     st->checkersBB = attackers_to(square<KING>(sideToMove)) & pieces(~sideToMove);
 
     set_extra_bitboards();
@@ -516,7 +517,10 @@ void Position::set_state() const {
         st->key ^= Zobrist::psq[pc][s];
 
         if (type_of(pc) == PAWN)
+        {
             st->pawnKey ^= Zobrist::psq[pc][s];
+            st->simpleEval += color_of(pc) == WHITE ? PawnValue : -PawnValue;
+        }
 
         else
         {
@@ -525,6 +529,7 @@ void Position::set_state() const {
             if (type_of(pc) != KING)
             {
                 st->nonPawnMaterial[color_of(pc)] += PieceValue[pc];
+                st->simpleEval += color_of(pc) == WHITE ? PieceValue[pc] : -PieceValue[pc];
 
                 if (type_of(pc) <= BISHOP)
                     st->minorPieceKey ^= Zobrist::psq[pc][s];
@@ -843,6 +848,7 @@ void Position::do_move(
     else if (captured)
     {
         Square capsq = to;
+        st->simpleEval += them == WHITE ? -PieceValue[captured] : PieceValue[captured];
 
         // If the captured piece is a pawn, update pawn hash key, otherwise
         // update non-pawn material.
@@ -953,6 +959,7 @@ void Position::do_move(
 
             // Update material
             st->nonPawnMaterial[us] += PieceValue[promotion];
+            st->simpleEval += (us == WHITE ? 1 : -1) * (PieceValue[promotion] - PawnValue);
         }
 
         // Update pawn hash key

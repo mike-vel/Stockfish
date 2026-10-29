@@ -37,10 +37,10 @@
 
 namespace Stockfish {
 
+// Returns the material evaluation of the position, relative to the side to move.
 static int simple_eval(const Position& pos) {
-    const Color c = pos.side_to_move();
-    return PawnValue * (pos.count<PAWN>(c) - pos.count<PAWN>(~c)) + pos.non_pawn_material(c)
-         - pos.non_pawn_material(~c);
+    const Value simpleEval = pos.state()->simpleEval;
+    return pos.side_to_move() == WHITE ? simpleEval : -simpleEval;
 }
 
 Value scale_evaluation(Value nnue, int optimism, const Position& pos);
