@@ -899,12 +899,18 @@ Value Search::Worker::search(
         if ((ttData.bound & (ttData.value >= beta ? BOUND_LOWER : BOUND_UPPER))
             && (cutNode == (ttData.value >= beta) || depth > 4))
         {
-            // If the ttMove is quiet, update move sorting heuristics on TT hit
+            // Update move sorting heuristics on TT hit
             if (ttData.move && ttData.value >= beta)
             {
-                // Bonus for a quiet ttMove that fails high
+                // Bonus for a ttMove that fails high
                 if (!ttCapture)
                     update_quiet_histories(pos, ss, *this, ttData.move, 131 * depth);
+                else
+                {
+                    PieceType capturedPiece = type_of(pos.piece_on(ttData.move.to_sq()));
+                    captureHistory[pos.moved_piece(ttData.move)][ttData.move.to_sq()][capturedPiece]
+                      << 150 * depth;
+                }
 
                 // Extra penalty for early quiet moves of the previous ply
                 if (prevSq != SQ_NONE && (ss - 1)->moveCount < 5 && !priorCapture)
