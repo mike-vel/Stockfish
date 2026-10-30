@@ -903,7 +903,7 @@ Value Search::Worker::search(
             if (ttData.move && ttData.value >= beta)
             {
                 // Bonus for a quiet ttMove that fails high
-                if (!ttCapture)
+                if (!ttCapture && !ss->inCheck)
                     update_quiet_histories(pos, ss, *this, ttData.move, 131 * depth);
 
                 // Extra penalty for early quiet moves of the previous ply
@@ -2014,14 +2014,18 @@ void update_all_stats(const Position& pos,
 
     if (!pos.capture_stage(bestMove))
     {
-        update_quiet_histories(pos, ss, workerThread, bestMove, bonus * 899 / 1024);
-
-        // Decrease stats for all non-best quiet moves
-        int actualMalus = malus * 1159 / 1024;
-        for (Move move : quietsSearched)
+        // Don't update if the king is in check
+        if (!pos.checkers())
         {
-            actualMalus = actualMalus * 921 / 1024;
-            update_quiet_histories(pos, ss, workerThread, move, -actualMalus);
+            update_quiet_histories(pos, ss, workerThread, bestMove, bonus * 899 / 1024);
+
+            // Decrease stats for all non-best quiet moves
+            int actualMalus = malus * 1159 / 1024;
+            for (Move move : quietsSearched)
+            {
+                actualMalus = actualMalus * 921 / 1024;
+                update_quiet_histories(pos, ss, workerThread, move, -actualMalus);
+            }
         }
     }
     else
