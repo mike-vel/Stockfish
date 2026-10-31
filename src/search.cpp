@@ -102,10 +102,11 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
     const int   bnpcv  = shared.nonpawn_correction_entry<BLACK>(pos)[us].nonPawnBlack;
     const int   cntcv =
       m.is_ok()
-          ? 7885
+          ? 6900
               * ((*(ss - 2)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
                  + (*(ss - 4)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()])
-            + 6307 * (*(ss - 6)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
+            + 5500 * (*(ss - 6)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
+            + 2777 * (*(ss - 8)->continuationCorrectionHistory)[pos.piece_on(m.to_sq())][m.to_sq()]
           : 80695;
 
     return 13806 * pcv + 9512 * micv + 11615 * (wnpcv + bnpcv) + cntcv;
@@ -139,6 +140,7 @@ void update_correction_history(const Position& pos,
         (*(ss - 2)->continuationCorrectionHistory)[pc][to] << bonus * 130 / 128;
         (*(ss - 4)->continuationCorrectionHistory)[pc][to] << bonus * 70 / 128;
         (*(ss - 6)->continuationCorrectionHistory)[pc][to] << bonus * 35 / 128;
+        (*(ss - 8)->continuationCorrectionHistory)[pc][to] << bonus * 17 / 128;
     }
 }
 
@@ -295,13 +297,13 @@ bool Search::Worker::iterative_deepening() {
     double timeReduction = 1, totBestMoveChanges = 0;
     int    delta, iterIdx                        = 0;
 
-    // Allocate stack with extra size to allow access from (ss - 7) to (ss + 2):
+    // Allocate stack with extra size to allow access from (ss - 8) to (ss + 2):
     // (ss - 7) is needed for update_continuation_histories(ss - 1) which accesses (ss - 6),
     // (ss + 2) is needed for initialization of cutOffCnt.
-    Stack  stack[MAX_PLY + 10] = {};
-    Stack* ss                  = stack + 7;
+    Stack  stack[MAX_PLY + 11] = {};
+    Stack* ss                  = stack + 8;
 
-    for (int i = 7; i > 0; --i)
+    for (int i = 8; i > 0; --i)
     {
         (ss - i)->continuationHistory =
           &continuationHistory[0][0][NO_PIECE][0];  // Use as a sentinel
@@ -677,6 +679,7 @@ void Search::Worker::do_move(Position&    pos,
         prefetch(&(*(ss - 1)->continuationCorrectionHistory)[pc][to]);
         prefetch(&(*(ss - 3)->continuationCorrectionHistory)[pc][to]);
         prefetch(&(*(ss - 5)->continuationCorrectionHistory)[pc][to]);
+        prefetch(&(*(ss - 7)->continuationCorrectionHistory)[pc][to]);
     }
 
     ++nodes;
@@ -1141,7 +1144,8 @@ moves_loop:  // When in check, search starts here
 
     const PieceToHistory* contHist[] = {
       (ss - 1)->continuationHistory, (ss - 2)->continuationHistory, (ss - 3)->continuationHistory,
-      (ss - 4)->continuationHistory, (ss - 5)->continuationHistory, (ss - 6)->continuationHistory};
+      (ss - 4)->continuationHistory, (ss - 5)->continuationHistory, (ss - 6)->continuationHistory,
+      (ss - 7)->continuationHistory, (ss - 8)->continuationHistory};
 
 
     MovePicker mp(pos, ttData.move, depth, &mainHistory, &lowPlyHistory, &captureHistory, contHist,
