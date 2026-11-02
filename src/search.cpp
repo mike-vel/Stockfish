@@ -1592,7 +1592,7 @@ moves_loop:  // When in check, search starts here
 
     // Adjust best value for fail high cases
     if (bestValue >= beta && !is_decisive(bestValue) && !is_decisive(alpha))
-        bestValue = (bestValue * depth + beta) / (depth + 1);
+        bestValue = (bestValue * depth + 3 * beta) / (depth + 3);
 
     // All legal moves have been searched: if there are no legal moves, it
     // must be a mate or a stalemate (just a fail low score if we are in a
