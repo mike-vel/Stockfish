@@ -775,7 +775,7 @@ Value Search::Worker::search(
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
-    int   priorReduction;
+    int   priorReduction, improvement;
     Piece movedPiece;
 
     SearchedList capturesSearched;
@@ -881,7 +881,8 @@ Value Search::Worker::search(
     // false otherwise. The improving flag is used in various pruning heuristics.
     // Similarly, opponentWorsening is true if our static evaluation is better
     // for us than at the last ply.
-    improving         = ss->staticEval > (ss - 2)->staticEval;
+    improvement       = ss->staticEval - (ss - 2)->staticEval;
+    improving         = improvement > 0;
     opponentWorsening = ss->staticEval > -(ss - 1)->staticEval;
 
     // Hindsight adjustment of reductions based on static evaluation difference
@@ -1036,7 +1037,7 @@ Value Search::Worker::search(
 
     // Step 10. Null move search with verification search
     if (cutNode
-        && ss->staticEval + 50 * ss->priorNMPFailHigh >= beta - 13 * depth - 47 * improving + 365
+        && ss->staticEval + 50 * ss->priorNMPFailHigh >= beta - 13 * depth - improvement * 100 / 1024 + 365
         && !excludedMove && pos.non_pawn_material(us) && ss->ply >= nmpMinPly && beta >= -2000)
     {
         assert((ss - 1)->currentMove != Move::null());
