@@ -775,7 +775,7 @@ Value Search::Worker::search(
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
-    int   priorReduction;
+    int   priorReduction, improvement;
     Piece movedPiece;
 
     SearchedList capturesSearched;
@@ -881,7 +881,8 @@ Value Search::Worker::search(
     // false otherwise. The improving flag is used in various pruning heuristics.
     // Similarly, opponentWorsening is true if our static evaluation is better
     // for us than at the last ply.
-    improving         = ss->staticEval > (ss - 2)->staticEval;
+    improvement       = ss->staticEval - (ss - 2)->staticEval;
+    improving         = improvement > 0;
     opponentWorsening = ss->staticEval > -(ss - 1)->staticEval;
 
     // Hindsight adjustment of reductions based on static evaluation difference
@@ -1349,10 +1350,13 @@ moves_loop:  // When in check, search starts here
                + (ttData.depth >= depth) * (816 + cutNode * 940);
 
         // Base reduction offset to compensate for other tweaks
-        r += 697;
+        r += 737;
 
         r -= moveCount * 65;
         r -= std::abs(correctionValue) / 26310;
+
+        // Decrease or increase the reduction based on how much the static evaluation improved.
+        r -= std::clamp(improvement * 200 / 128, -96, 528);
 
         // Increase reduction for cut nodes
         if (cutNode)
