@@ -83,6 +83,18 @@ const std::array<int, MAX_MOVES> reductions = [] {
     return table;
 }();
 
+int LmrBaseReductionOffset = 697;
+TUNE(SetRange(0, 1500), LmrBaseReductionOffset);
+
+int LmrImprovementMultiplier = 200;
+TUNE(SetRange(0, 1024), LmrImprovementMultiplier);
+
+int LmrImprovementMinimum = -128;
+TUNE(SetRange(-2048, 0), LmrImprovementMinimum);
+
+int LmrImprovementMaximum = 512;
+TUNE(SetRange(0, 2048), LmrImprovementMaximum);
+
 // (*Scalers):
 // The values with Scaler asterisks have proven non-linear scaling.
 // They are optimized to time controls of 180 + 1.8 and longer,
@@ -780,7 +792,7 @@ Value Search::Worker::search(
     Value bestValue, value, eval, maxValue, probCutBeta;
     bool  givesCheck, improving, priorCapture, opponentWorsening;
     bool  capture, ttCapture;
-    int   priorReduction;
+    int   priorReduction, improvement;
     Piece movedPiece;
 
     SearchedList capturesSearched;
@@ -886,7 +898,8 @@ Value Search::Worker::search(
     // false otherwise. The improving flag is used in various pruning heuristics.
     // Similarly, opponentWorsening is true if our static evaluation is better
     // for us than at the last ply.
-    improving         = ss->staticEval > (ss - 2)->staticEval;
+    improvement       = is_valid((ss - 2)->staticEval) ? ss->staticEval - (ss - 2)->staticEval : 0;
+    improving         = improvement > 0;
     opponentWorsening = ss->staticEval > -(ss - 1)->staticEval;
 
     // Hindsight adjustment of reductions based on static evaluation difference
@@ -1359,10 +1372,14 @@ moves_loop:  // When in check, search starts here
                + (ttData.depth >= depth) * (816 + cutNode * 940);
 
         // Base reduction offset to compensate for other tweaks
-        r += 697;
+        r += LmrBaseReductionOffset;
 
         r -= moveCount * 65;
         r -= std::abs(correctionValue) / 26310;
+
+        // Decrease or increase the reduction based on how much the static evaluation improved.
+        r -= std::clamp(improvement * LmrImprovementMultiplier / 128,
+                        LmrImprovementMinimum, LmrImprovementMaximum);
 
         // Increase reduction for cut nodes
         if (cutNode)
