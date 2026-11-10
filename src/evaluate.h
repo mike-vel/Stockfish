@@ -48,6 +48,14 @@ Value evaluate(const NNUE::Network&           network,
                Eval::NNUE::AccumulatorStack&  accumulators,
                Eval::NNUE::AccumulatorCaches& caches,
                int                            optimism);
+
+Value evaluate_unadjusted(const NNUE::Network&  network,
+               const Position&                pos,
+               Eval::NNUE::AccumulatorStack&  accumulators,
+               Eval::NNUE::AccumulatorCaches& caches,
+               int                            optimism);
+
+Value apply_drawish_scale(Value v, int r50c);
 }  // namespace Eval
 
 }  // namespace Stockfish

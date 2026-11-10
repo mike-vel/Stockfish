@@ -373,6 +373,7 @@ class Worker {
     TimePoint elapsed() const;
 
     Value evaluate(const Position&);
+    Value evaluate_unadjusted(const Position&);
 
     LimitsType limits;
 

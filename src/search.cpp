@@ -113,8 +113,9 @@ int correction_value(const Worker& w, const Position& pos, const Stack* const ss
 
 // Add correctionHistory value to raw staticEval and guarantee evaluation
 // does not hit the tablebase range.
-Value to_corrected_static_eval(const Value v, const int cv) {
-    return std::clamp(v + cv / 131072, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
+Value to_corrected_static_eval(const Value v, const Position& pos, const int cv) {
+    Value val = Eval::apply_drawish_scale(v, pos.rule50_count());
+    return std::clamp(val + cv / 131072, VALUE_TB_LOSS_IN_MAX_PLY + 1, VALUE_TB_WIN_IN_MAX_PLY - 1);
 }
 
 void update_correction_history(const Position& pos,
@@ -861,9 +862,9 @@ Value Search::Worker::search(
         // Never assume anything about values stored in TT
         unadjustedStaticEval = ttData.eval;
         if (!is_valid(unadjustedStaticEval))
-            unadjustedStaticEval = evaluate(pos);
+            unadjustedStaticEval = evaluate_unadjusted(pos);
 
-        ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
+        ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, pos, correctionValue);
 
         // ttValue can be used as a better position evaluation
         if (is_valid(ttData.value)
@@ -872,8 +873,8 @@ Value Search::Worker::search(
     }
     else
     {
-        unadjustedStaticEval = evaluate(pos);
-        ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, correctionValue);
+        unadjustedStaticEval = evaluate_unadjusted(pos);
+        ss->staticEval = eval = to_corrected_static_eval(unadjustedStaticEval, pos, correctionValue);
 
         // Static evaluation is saved as it was before adjustment by correction history
         ttWriter.write(posKey, VALUE_NONE, ss->ttPv, BOUND_NONE, DEPTH_UNSEARCHED, Move::none(),
@@ -1761,10 +1762,10 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
             unadjustedStaticEval = ttData.eval;
 
             if (!is_valid(unadjustedStaticEval))
-                unadjustedStaticEval = evaluate(pos);
+                unadjustedStaticEval = evaluate_unadjusted(pos);
 
             ss->staticEval = bestValue =
-              to_corrected_static_eval(unadjustedStaticEval, correctionValue);
+              to_corrected_static_eval(unadjustedStaticEval, pos, correctionValue);
 
             // ttValue can be used as a better position evaluation
             if (is_valid(ttData.value) && !is_decisive(ttData.value)
@@ -1773,9 +1774,9 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         }
         else
         {
-            unadjustedStaticEval = evaluate(pos);
+            unadjustedStaticEval = evaluate_unadjusted(pos);
             ss->staticEval       = bestValue =
-              to_corrected_static_eval(unadjustedStaticEval, correctionValue);
+              to_corrected_static_eval(unadjustedStaticEval, pos, correctionValue);
         }
 
         // Stand pat. Return immediately if static value is at least beta
@@ -1937,6 +1938,11 @@ Value Search::Worker::evaluate(const Position& pos) {
                           optimism[pos.side_to_move()]);
 }
 
+Value Search::Worker::evaluate_unadjusted(const Position& pos) {
+    return Eval::evaluate_unadjusted(network[numaAccessToken], pos, accumulatorStack, refreshTable,
+                                     optimism[pos.side_to_move()]);
+}
+
 namespace {
 
 // Adjusts a mate or TB score from "plies to mate from the root" to
@@ -1983,7 +1989,7 @@ Value value_from_tt(Value v, int ply, int r50c) {
         return v + ply;
     }
 
-    return v;
+    return Eval::apply_drawish_scale(v, r50c);
 }
 
 
