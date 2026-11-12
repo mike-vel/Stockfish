@@ -339,7 +339,7 @@ bool Search::Worker::iterative_deepening() {
     lowPlyHistory.fill(102);
 
     for (Color c : {WHITE, BLACK})
-        for (int i = 0; i < UINT_16_HISTORY_SIZE; i++)
+        for (int i = 0; i < MOVE_HISTORY_SIZE; i++)
             mainHistory[c][i] = mainHistory[c][i] * 729 / 1024;
 
     // Iterative deepening loop until requested to stop or the target depth is reached
@@ -1008,7 +1008,7 @@ Value Search::Worker::search(
         int evalDiff = std::clamp(-int((ss - 1)->staticEval + ss->staticEval), -189, 194) + 60;
         mainHistory[~us][((ss - 1)->currentMove).raw()] << evalDiff * 11;
         if (!ttHit && type_of(pos.piece_on(prevSq)) != PAWN
-            && ((ss - 1)->currentMove).type_of() != PROMOTION)
+            && !((ss - 1)->currentMove).is_promotion())
             sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << evalDiff * 13;
     }
 
@@ -1626,7 +1626,7 @@ moves_loop:  // When in check, search starts here
 
         mainHistory[~us][((ss - 1)->currentMove).raw()] << scaledBonus * 215 / 32768;
 
-        if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
+        if (type_of(pos.piece_on(prevSq)) != PAWN && !((ss - 1)->currentMove).is_promotion())
             sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << scaledBonus * 324 / 8192;
     }
 
@@ -1817,7 +1817,7 @@ Value Search::Worker::qsearch(Position& pos, Stack* ss, Value alpha, Value beta)
         {
             // Futility pruning and moveCount pruning
             if (!givesCheck && move.to_sq() != prevSq && !is_loss(futilityBase)
-                && move.type_of() != PROMOTION)
+                && !move.is_promotion())
             {
                 if (moveCount > 2)
                     continue;

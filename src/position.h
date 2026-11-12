@@ -357,7 +357,7 @@ inline bool Position::capture(Move m) const {
 
     const MoveType mt = m.type_of();
 
-    if (mt == NORMAL || mt == PROMOTION)
+    if (mt == NORMAL || m.is_promotion())
         return !empty(m.to_sq());
 
     return mt == EN_PASSANT;
@@ -374,7 +374,7 @@ inline bool Position::capture_stage(Move m) const {
     if (mt == NORMAL)
         return !empty(m.to_sq());
 
-    if (mt == PROMOTION)
+    if (m.is_promotion())
         return !empty(m.to_sq()) || m.promotion_type() == QUEEN;
 
     return mt == EN_PASSANT;

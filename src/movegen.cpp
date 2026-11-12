@@ -88,13 +88,13 @@ Move* make_promotions(Move* moveList, [[maybe_unused]] Square to) {
     [[maybe_unused]] Square from = to - D;
 
     if constexpr (Type == CAPTURES || all)
-        *moveList++ = Move::make<PROMOTION>(from, to, QUEEN);
+        *moveList++ = Move::make<PROMOTION_Q>(from, to);
 
     if constexpr ((Type == CAPTURES && Enemy) || (Type == QUIETS && !Enemy) || all)
     {
-        *moveList++ = Move::make<PROMOTION>(from, to, ROOK);
-        *moveList++ = Move::make<PROMOTION>(from, to, BISHOP);
-        *moveList++ = Move::make<PROMOTION>(from, to, KNIGHT);
+        *moveList++ = Move::make<PROMOTION_R>(from, to);
+        *moveList++ = Move::make<PROMOTION_B>(from, to);
+        *moveList++ = Move::make<PROMOTION_N>(from, to);
     }
 
     return moveList;

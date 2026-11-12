@@ -423,17 +423,21 @@ constexpr Key make_key(u64 seed) { return seed * 6364136223846793005ULL + 144269
 
 enum MoveType : u16 {
     NORMAL,
-    PROMOTION  = 1 << 14,
-    EN_PASSANT = 2 << 14,
-    CASTLING   = 3 << 14
+    EN_PASSANT   = 1 << 12,
+    CASTLING     = 2 << 12,
+    PROMOTION_N  = (KNIGHT + 1) << 12,
+    PROMOTION_B  = (BISHOP + 1) << 12,
+    PROMOTION_R  = (ROOK   + 1) << 12,
+    PROMOTION_Q  = (QUEEN  + 1) << 12,
 };
 
-// A move needs 16 bits to be stored
+// A move needs 15 bits to be stored
 //
 // bit  0- 5: destination square (from 0 to 63)
 // bit  6-11: origin square (from 0 to 63)
-// bit 12-13: promotion piece type - 2 (from KNIGHT-2 to QUEEN-2)
-// bit 14-15: special move flag: promotion (1), en passant (2), castling (3)
+// bit 12-14: special move flag: en passant (1), castling (2), promotion (3-6)
+//            promotions: 3=knight, 4=bishop, 5=rook, 6=queen
+// bit 15   : unused
 // NOTE: en passant bit is set only when a pawn can be captured
 //
 // Special cases are Move::none() and Move::null(). We can sneak these in because
@@ -450,8 +454,8 @@ class Move {
         data((from << 6) + to) {}
 
     template<MoveType T>
-    static constexpr Move make(Square from, Square to, PieceType pt = KNIGHT) {
-        return Move(T + ((pt - KNIGHT) << 12) + (from << 6) + to);
+    static constexpr Move make(Square from, Square to) {
+        return Move(T + (from << 6) + to);
     }
 
     constexpr Square from_sq() const {
@@ -464,9 +468,14 @@ class Move {
         return Square(data & 0x3F);
     }
 
-    constexpr MoveType type_of() const { return MoveType(data & (3 << 14)); }
+    constexpr MoveType type_of() const { return MoveType(data & (7 << 12)); }
 
-    constexpr PieceType promotion_type() const { return PieceType(((data >> 12) & 3) + KNIGHT); }
+    constexpr bool is_promotion() const { return data >= PROMOTION_N; }
+
+    constexpr PieceType promotion_type() const {
+        assert(is_promotion() && data < MOVE_HISTORY_SIZE);
+        return PieceType((data >> 12) - 1);
+    }
 
     constexpr bool is_ok() const { return none().data != data && null().data != data; }
 

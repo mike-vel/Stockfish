@@ -749,9 +749,6 @@ bool Position::gives_check(Move m) const {
     case NORMAL :
         return false;
 
-    case PROMOTION :
-        return attacks_bb(m.promotion_type(), to, pieces() ^ from) & pieces(~sideToMove, KING);
-
     // En passant capture with check? We have already handled the case of direct
     // checks and ordinary discovered check, so the only case we need to handle
     // is the unusual case of a discovered check through the captured pawn.
@@ -763,13 +760,16 @@ bool Position::gives_check(Move m) const {
         return (rookAttacks & pieces(sideToMove, QUEEN, ROOK))
              | (bishopAttacks & pieces(sideToMove, QUEEN, BISHOP));
     }
-    default :  //CASTLING
-    {
+
+    case CASTLING : {
         // Castling is encoded as 'king captures the rook'
         Square rto = relative_square(sideToMove, to > from ? SQ_F1 : SQ_D1);
 
         return check_squares(ROOK) & rto;
     }
+
+    default : // PROMOTION
+        return attacks_bb(m.promotion_type(), to, pieces() ^ from) & pieces(~sideToMove, KING);
     }
 }
 
@@ -923,7 +923,7 @@ void Position::do_move(
             }
         }
 
-        else if (m.type_of() == PROMOTION)
+        else if (m.is_promotion())
         {
             PieceType pt        = m.promotion_type();
             Piece     promotion = make_piece(us, pt);
@@ -979,7 +979,7 @@ void Position::do_move(
     // Move the piece. The tricky Chess960 castling is handled earlier
     if (m.type_of() != CASTLING)
     {
-        const Piece toPc = m.type_of() == PROMOTION ? make_piece(us, m.promotion_type()) : pc;
+        const Piece toPc = m.is_promotion() ? make_piece(us, m.promotion_type()) : pc;
 
         if (captured && m.type_of() != EN_PASSANT)
         {
@@ -1033,7 +1033,7 @@ void Position::do_move(
     assert(dp.pc != NO_PIECE);
     assert(!(bool(captured) || m.type_of() == CASTLING) ^ (dp.remove_sq != SQ_NONE));
     assert(dp.from != SQ_NONE);
-    assert(!(dp.add_sq != SQ_NONE) ^ (m.type_of() == PROMOTION || m.type_of() == CASTLING));
+    assert(!(dp.add_sq != SQ_NONE) ^ (m.is_promotion() || m.type_of() == CASTLING));
 }
 
 
@@ -1053,7 +1053,7 @@ void Position::undo_move(Move m) {
     assert(empty(from) || m.type_of() == CASTLING);
     assert(type_of(st->capturedPiece) != KING);
 
-    if (m.type_of() == PROMOTION)
+    if (m.is_promotion())
     {
         assert(relative_rank(us, to) == RANK_8);
         assert(type_of(pc) == m.promotion_type());

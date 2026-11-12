@@ -613,7 +613,7 @@ std::string UCIEngine::move(Move m, bool chess960) {
 
     std::string move = square(from) + square(to);
 
-    if (m.type_of() == PROMOTION)
+    if (m.is_promotion())
         move += " pnbrqk"[m.promotion_type()];
 
     return move;
