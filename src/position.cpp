@@ -534,9 +534,6 @@ void Position::set_castling_right(Color c, Square rfrom) {
 // computed lazily by compute_threats().
 void Position::set_extra_bitboards() const {
 
-    update_slider_blockers(WHITE);
-    update_slider_blockers(BLACK);
-
     Square ksq                              = square<KING>(~sideToMove);
     const auto [bishopAttacks, rookAttacks] = both_attacks_bb(ksq, pieces());
 
@@ -575,6 +572,8 @@ void Position::set_state() const {
     st->nonPawnMaterial[WHITE] = st->nonPawnMaterial[BLACK] = VALUE_ZERO;
     st->checkersBB = attackers_to(square<KING>(sideToMove)) & pieces(~sideToMove);
 
+    update_slider_blockers(WHITE);
+    update_slider_blockers(BLACK);
     set_extra_bitboards();
 
     for (Bitboard b = pieces(); b;)
@@ -700,6 +699,7 @@ void Position::update_slider_blockers(Color c) const {
 
     st->blockersForKing[c] = 0;
     st->pinners[~c]        = 0;
+    st->kingRays[c]        = attacks_bb(QUEEN, ksq);
 
     // Snipers are sliders that attack 's' when a piece and other snipers are removed
     Bitboard snipers = ((attacks_bb(ROOK, ksq) & pieces(QUEEN, ROOK))
@@ -1079,6 +1079,16 @@ void Position::do_move(
 
     sideToMove = ~sideToMove;
 
+    std::memcpy(st->blockersForKing, st->previous->blockersForKing,
+                sizeof(st->blockersForKing));
+    std::memcpy(st->pinners, st->previous->pinners, sizeof(st->pinners));
+
+    // Only check if the piece moved is on the line of sight with the king.
+    if (st->kingRays[us] & (from | to))
+        update_slider_blockers(us);
+    if (st->kingRays[them] & (from | to))
+        update_slider_blockers(them);
+
     // Update king attacks used for fast check detection
     set_extra_bitboards();
 
@@ -1388,6 +1398,10 @@ void Position::do_null_move(StateInfo& newSt) {
 
     newSt.previous = st;
     st             = &newSt;
+
+    std::memcpy(st->blockersForKing, st->previous->blockersForKing,
+                sizeof(st->blockersForKing));
+    std::memcpy(st->pinners, st->previous->pinners, sizeof(st->pinners));
 
     if (st->epSquare != SQ_NONE)
     {
