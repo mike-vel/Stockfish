@@ -185,7 +185,20 @@ std::ostream& operator<<(std::ostream& os, const Position& pos) {
 }
 
 
-// Compile-time Robin Hood table of Zobrist hashes for reversible moves.
+// Compile-time Robin Hood table of Zobrist hashes on top of Marcel van Kervinck's
+// cuckoo algorithm for reversible moves.
+
+// Robin Hood hashing is a variant of open addressing that reduces the variance of
+// probe sequence lengths by moving keys with shorter probe sequences to make room
+// for keys with longer probe sequences.
+// It is O(1) on average, and O(n) in the worst case (extremely unlikely)
+
+// The repetition table is generated at compile time, and the resulting table is used
+// to detect repetitions in chess positions efficiently.
+
+// References:
+//   Upcoming repetition: http://web.archive.org/web/20201107002606/https://marcelk.net/2013-04-06/paper/upcoming-rep-v2.pdf
+//   Robin hood hashing:  https://cs.uwaterloo.ca/research/tr/1986/CS-86-14.pdf
 constexpr int REPETITION_TABLE_SIZE = 8192;
 constexpr int REPETITION_TABLE_MASK = REPETITION_TABLE_SIZE - 1;
 constexpr int repetition_hash(Key key) { return key & REPETITION_TABLE_MASK; }
@@ -193,7 +206,7 @@ constexpr int repetition_hash(Key key) { return key & REPETITION_TABLE_MASK; }
 struct RepetitionTable {
     std::array<Key, REPETITION_TABLE_SIZE>  keys;
     std::array<Move, REPETITION_TABLE_SIZE> moves;
-    // Zero marks an empty slot; occupied distances are one-based.
+    // Similar to probe sequence length. Zero marks an empty slot; occupied distances are one-based.
     std::array<u8, REPETITION_TABLE_SIZE>   distances;
     int                                     count;
     int                                     maxDistance;
@@ -218,9 +231,11 @@ constexpr RepetitionTable generate_repetition_table() {
                     int  distance = 1;
                     while (true)
                     {
+                        // If the distance is too large, return an invalid table
                         if (distance > 255)
                             return {keys, moves, distances, -1, distance};
 
+                        // If the slot is empty, insert the key and move
                         if (distances[i] == 0)
                         {
                             keys[i]      = key;
@@ -230,6 +245,9 @@ constexpr RepetitionTable generate_repetition_table() {
                             break;
                         }
 
+                        // If the current slot has a smaller distance than the new key, swap the
+                        // smaller ("poorer") key and continue probing with the displaced
+                        // ("richer") key.
                         if (distances[i] < distance)
                         {
                             swap_constexpr(keys[i], key);
@@ -240,6 +258,7 @@ constexpr RepetitionTable generate_repetition_table() {
                             maxDistance           = std::max(maxDistance, int(distances[i]));
                         }
 
+                        // Advance to the next slot in the probe sequence
                         ++distance;
                         i = (i + 1) & REPETITION_TABLE_MASK;
                     }
@@ -278,6 +297,7 @@ constexpr bool repetition_table_is_valid() {
     return count == repetitionTable.count && maxDistance == repetitionTable.maxDistance;
 }
 
+// Check if the repetition table is valid.
 static_assert(repetitionTable.count == 3668, "repetition table insertion count must be stable");
 static_assert(repetitionTable.maxDistance <= 255, "repetition table displacement must fit in one byte");
 static_assert(repetition_table_is_valid(), "repetition table lookup invariants must hold");
@@ -1632,14 +1652,18 @@ bool Position::upcoming_repetition(int ply) const {
 
         int j        = repetition_hash(moveKey);
         int distance = 1;
+
+        // Probe the repetition table for a move with the same key and distance from the current position.
         while (repetitionTable.distances[j] >= distance)
         {
+            // If the keys match, check if the move is a repetition of the current position.
             if (repetitionTable.keys[j] == moveKey)
             {
                 Move   move = repetitionTable.moves[j];
                 Square s1   = move.from_sq();
                 Square s2   = move.to_sq();
 
+                // The path must be clear of pieces to be considered legal and a repetition.
                 if (!((between_bb(s1, s2) ^ s2) & pieces()))
                 {
                     auto b = st->piecePlacement;
@@ -1647,8 +1671,8 @@ bool Position::upcoming_repetition(int ply) const {
 
                     if (b == stp->piecePlacement)
                     {
-                        // For nodes before or at the root, check that the move is a
-                        // repetition rather than a move to the current position.
+                        // Check if the previous position is a repetition of the current position,
+                        // or if the previous position was already a repetition.
                         if (ply > i || stp->repetition)
                             return true;
                     }
@@ -1657,6 +1681,7 @@ bool Position::upcoming_repetition(int ply) const {
                 break;
             }
 
+            // Advance to the next slot in the probe sequence
             ++distance;
             j = (j + 1) & REPETITION_TABLE_MASK;
         }
