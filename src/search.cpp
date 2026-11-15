@@ -1316,7 +1316,7 @@ moves_loop:  // When in check, search starts here
                     update_correction_history(pos, ss, *this, bonus);
                 }
 
-                return value;
+                return (value + beta) / 2;
             }
 
             // Negative extensions
