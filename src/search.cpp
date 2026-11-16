@@ -1133,8 +1133,10 @@ Value Search::Worker::search(
 moves_loop:  // When in check, search starts here
 
     // Step 13. A small ProbCut idea
-    probCutBeta = beta + 428;
-    if ((ttData.bound & BOUND_LOWER) && ttData.depth >= depth - 4 && ttData.value >= probCutBeta
+    Depth depthDiff = std::max(depth - ttData.depth, 0);
+
+    probCutBeta = beta + (depthDiff == 5 ? 640 : (depthDiff == 4 ? 480 : 400));
+    if ((ttData.bound & BOUND_LOWER) && depthDiff <= 5 && ttData.value >= probCutBeta
         && !is_decisive(beta) && is_valid(ttData.value) && !is_decisive(ttData.value) && !seekMate)
         return probCutBeta;
 
