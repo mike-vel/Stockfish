@@ -127,10 +127,13 @@ void update_correction_history(const Position& pos,
     constexpr int nonPawnWeight = 186;
     auto&         shared        = workerThread.sharedHistory;
 
-    shared.pawn_correction_entry(pos)[us].pawn << bonus;
-    shared.minor_piece_correction_entry(pos)[us].minor << bonus * 150 / 128;
-    shared.nonpawn_correction_entry<WHITE>(pos)[us].nonPawnWhite << bonus * nonPawnWeight / 128;
-    shared.nonpawn_correction_entry<BLACK>(pos)[us].nonPawnBlack << bonus * nonPawnWeight / 128;
+    const int correctionScale = std::min(853 + pos.non_pawn_material() * 200 / 8192, 1195);
+    const int correctionBonus = bonus * correctionScale / 1024;
+
+    shared.pawn_correction_entry(pos)[us].pawn << correctionBonus;
+    shared.minor_piece_correction_entry(pos)[us].minor << correctionBonus * 150 / 128;
+    shared.nonpawn_correction_entry<WHITE>(pos)[us].nonPawnWhite << correctionBonus * nonPawnWeight / 128;
+    shared.nonpawn_correction_entry<BLACK>(pos)[us].nonPawnBlack << correctionBonus * nonPawnWeight / 128;
 
     if (m.is_ok())
     {
