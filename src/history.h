@@ -35,14 +35,18 @@
 
 namespace Stockfish {
 
-constexpr int PAWN_HISTORY_BASE_SIZE   = 8192;  // has to be a power of 2
-constexpr int UINT_16_HISTORY_SIZE     = std::numeric_limits<u16>::max() + 1;
-constexpr int CORRHIST_BASE_SIZE       = UINT_16_HISTORY_SIZE;
-constexpr int CORRECTION_HISTORY_LIMIT = 1024;
-constexpr int LOW_PLY_HISTORY_SIZE     = 5;
+constexpr int PAWN_HISTORY_BASE_SIZE        = 8192;  // has to be a power of 2
+constexpr int MINOR_PIECE_HISTORY_BASE_SIZE = 8192;  // has to be a power of 2
+constexpr int UINT_16_HISTORY_SIZE          = std::numeric_limits<u16>::max() + 1;
+constexpr int CORRHIST_BASE_SIZE            = UINT_16_HISTORY_SIZE;
+constexpr int CORRECTION_HISTORY_LIMIT      = 1024;
+constexpr int LOW_PLY_HISTORY_SIZE          = 5;
 
 static_assert((PAWN_HISTORY_BASE_SIZE & (PAWN_HISTORY_BASE_SIZE - 1)) == 0,
               "PAWN_HISTORY_BASE_SIZE has to be a power of 2");
+
+static_assert((MINOR_PIECE_HISTORY_BASE_SIZE & (MINOR_PIECE_HISTORY_BASE_SIZE - 1)) == 0,
+              "MINOR_PIECE_HISTORY_BASE_SIZE has to be a power of 2");
 
 static_assert((CORRHIST_BASE_SIZE & (CORRHIST_BASE_SIZE - 1)) == 0,
               "CORRHIST_BASE_SIZE has to be a power of 2");
@@ -144,6 +148,10 @@ using ContinuationHistory = MultiArray<PieceToHistory, PIECE_NB, SQUARE_NB>;
 // PawnHistory is addressed by the pawn structure and a move's [piece][to]
 using PawnHistory = DynStats<AtomicStats<i16, 8192, PIECE_NB, SQUARE_NB>, PAWN_HISTORY_BASE_SIZE>;
 
+// MinorPieceHistory is addressed by the minor piece structure and a move's [piece][to]
+using MinorPieceHistory =
+  DynStats<AtomicStats<i16, 8192, PIECE_NB, SQUARE_NB>, MINOR_PIECE_HISTORY_BASE_SIZE>;
+
 // Correction histories record differences between the static evaluation of
 // positions and their search score. It is used to improve the static evaluation
 // used by some search heuristics.
@@ -206,10 +214,12 @@ struct SharedHistories {
     SharedHistories(usize threadCount) :
         correctionHistory(threadCount),
         continuationHistoryBlock(make_unique_large_page<ContinuationHistoryBlock>()),
-        pawnHistory(threadCount) {
+        pawnHistory(threadCount),
+        minorPieceHistory(threadCount) {
         assert((threadCount & (threadCount - 1)) == 0 && threadCount != 0);
-        sizeMinus1         = correctionHistory.get_size() - 1;
-        pawnHistSizeMinus1 = pawnHistory.get_size() - 1;
+        sizeMinus1               = correctionHistory.get_size() - 1;
+        pawnHistSizeMinus1       = pawnHistory.get_size() - 1;
+        minorPieceHistSizeMinus1 = minorPieceHistory.get_size() - 1;
     }
 
     auto& continuationHistory() { return continuationHistoryBlock->table; }
@@ -221,6 +231,13 @@ struct SharedHistories {
     }
     const auto& pawn_entry(const Position& pos) const {
         return pawnHistory[pos.pawn_key() & pawnHistSizeMinus1];
+    }
+
+    auto& minor_piece_entry(const Position& pos) {
+        return minorPieceHistory[pos.minor_piece_key() & minorPieceHistSizeMinus1];
+    }
+    const auto& minor_piece_entry(const Position& pos) const {
+        return minorPieceHistory[pos.minor_piece_key() & minorPieceHistSizeMinus1];
     }
 
     auto& pawn_correction_entry(const Position& pos) {
@@ -249,10 +266,11 @@ struct SharedHistories {
     UnifiedCorrectionHistory               correctionHistory;
     LargePagePtr<ContinuationHistoryBlock> continuationHistoryBlock;
     PawnHistory                            pawnHistory;
+    MinorPieceHistory                      minorPieceHistory;
 
 
    private:
-    usize sizeMinus1, pawnHistSizeMinus1;
+    usize sizeMinus1, pawnHistSizeMinus1, minorPieceHistSizeMinus1;
 };
 
 }  // namespace Stockfish
