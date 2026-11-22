@@ -181,6 +181,8 @@ MovePicker::MovePicker(const Position& p, Move ttm, int th, const CapturePieceTo
     stage       = ttm && pos.capture_stage(ttm) && pos.legal(ttm) ? TT : INIT_FIRST_STAGE;
 }
 
+constexpr int threatBonus[KING + 1] = {0, 0, 14, 14, 22, 37, 0};
+
 // Assigns a numerical value to each move in a list, used for sorting.
 // Captures are ordered by Most Valuable Victim (MVV), preferring captures
 // with a good history. Quiet moves are ordered using the history tables.
@@ -245,7 +247,8 @@ ExtMove* MovePicker::generate_and_score() {
 
             // penalty for moving to a square threatened by a lesser piece
             // or bonus for escaping an attack by a lesser piece.
-            int v = 20 * (bool(threatByLesser[pt] & from) - bool(threatByLesser[pt] & to));
+            int v = threatBonus[pt]
+                  * (bool(threatByLesser[pt] & from) - bool(threatByLesser[pt] & to));
             value += PieceValue[pt] * v;
 
             if (lph)
