@@ -52,10 +52,57 @@
 
 namespace Stockfish {
 
-inline int lmr_divisor(int depth) {
+inline constexpr int lmr_divisor(int depth) {
     int d = std::min(depth, 16);
     return 3000 + 7 * (d - 8) * (d - 8);
 }
+
+// Precompute magic number LMR multiplications [m = ceil(2^32 / d)]
+inline constexpr std::uint32_t lmr_magic_for_divisor(int divisor) {
+    constexpr std::uint64_t two_to_the_32 = static_cast<std::uint64_t>(1) << 32;
+    const auto              d             = static_cast<std::uint64_t>(divisor);
+    return static_cast<std::uint32_t>((two_to_the_32 + d - 1) / d);
+}
+
+inline constexpr std::array<std::uint32_t, 16> lmr_divisor_magics = [] {
+    std::array<std::uint32_t, 16> magics{};
+    for (std::size_t i = 0; i < magics.size(); ++i)
+        magics[i] = lmr_magic_for_divisor(lmr_divisor(static_cast<int>(i) + 1));
+    return magics;
+}();
+
+// LMR is simply computed by (m * n / 2^32)
+inline constexpr int lmr_history_div(int history, int depth) {
+    int d = std::clamp(depth, 1, 16);
+
+    std::int64_t magnitude = history >= 0 ? history : -static_cast<std::int64_t>(history);
+    std::int64_t quotient = (magnitude * lmr_divisor_magics[static_cast<std::size_t>(d - 1)]) >> 32;
+
+    return history >= 0 ? static_cast<int>(quotient) : -static_cast<int>(quotient);
+}
+
+inline constexpr bool lmr_divisor_magics_are_valid() {
+    for (int d = 1; d <= 16; ++d)
+    {
+        int           divisor = lmr_divisor(d);
+        std::uint32_t magic   = lmr_magic_for_divisor(divisor);
+
+        if (lmr_divisor_magics[static_cast<std::size_t>(d - 1)] != magic)
+            return false;
+
+        // Only check reasonable depth adjustments
+        for (int depthAdjustment = -31; depthAdjustment <= 31; ++depthAdjustment)
+            for (int i = -1; i <= 1; ++i)
+            {
+                int num = depthAdjustment * divisor + i;
+                if (lmr_history_div(num, d) != num / divisor)
+                    return false;
+            }
+    }
+
+    return true;
+}
+static_assert(lmr_divisor_magics_are_valid(), "LMR divisor magic-number verification failed");
 
 namespace TB = Tablebases;
 
@@ -1234,7 +1281,7 @@ moves_loop:  // When in check, search starts here
                 history += 69 * mainHistory[us][move.raw()] / 32;
 
                 // (*Scaler): Generally, lower divisors scale well
-                lmrDepth += history / lmr_divisor(depth);
+                lmrDepth += lmr_history_div(history, depth);
 
                 Value futilityValue =
                   ss->staticEval + 119 * lmrDepth + 90 * (ss->staticEval > alpha) + 164;
