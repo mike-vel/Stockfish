@@ -1114,6 +1114,7 @@ void Position::do_move(Move m, bool givesCheck, Dirties& dirties, const SharedHi
     if (history)
     {
         prefetch(&history->pawn_entry(*this)[pc][to]);
+        prefetch(&history->minor_piece_entry(*this)[pc][to]);
         prefetch(&history->pawn_correction_entry(*this));
         prefetch(&history->minor_piece_correction_entry(*this));
         prefetch(&history->nonpawn_correction_entry<WHITE>(*this));

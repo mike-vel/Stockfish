@@ -204,13 +204,14 @@ ExtMove* MovePicker::generate_and_score() {
 
     MoveList<Type> ml(pos);  // move generation
 
-    const auto* mainHist = Type != CAPTURES ? &(*mainHistory)[us] : nullptr;
-    const auto* pawnHist = Type == QUIETS ? &sharedHistory->pawn_entry(pos) : nullptr;
-    const auto* ch0      = Type != CAPTURES ? continuationHistory[0] : nullptr;
-    const auto* ch1      = Type == QUIETS ? continuationHistory[1] : nullptr;
-    const auto* ch2      = Type == QUIETS ? continuationHistory[2] : nullptr;
-    const auto* ch3      = Type == QUIETS ? continuationHistory[3] : nullptr;
-    const auto* ch5      = Type == QUIETS ? continuationHistory[5] : nullptr;
+    const auto* mainHist       = Type != CAPTURES ? &(*mainHistory)[us] : nullptr;
+    const auto* pawnHist       = Type == QUIETS ? &sharedHistory->pawn_entry(pos) : nullptr;
+    const auto* minorPieceHist = Type == QUIETS ? &sharedHistory->minor_piece_entry(pos) : nullptr;
+    const auto* ch0            = Type != CAPTURES ? continuationHistory[0] : nullptr;
+    const auto* ch1            = Type == QUIETS ? continuationHistory[1] : nullptr;
+    const auto* ch2            = Type == QUIETS ? continuationHistory[2] : nullptr;
+    const auto* ch3            = Type == QUIETS ? continuationHistory[3] : nullptr;
+    const auto* ch5            = Type == QUIETS ? continuationHistory[5] : nullptr;
     const auto* lph =
       Type == QUIETS && ply < LOW_PLY_HISTORY_SIZE ? &(*lowPlyHistory)[ply] : nullptr;
 
@@ -237,6 +238,7 @@ ExtMove* MovePicker::generate_and_score() {
             // histories
             int value = 2 * (*mainHist)[m.raw()];
             value += 2 * (*pawnHist)[pc][to];
+            value += (*minorPieceHist)[pc][to];
             value += (*ch0)[pc][to];
             value += (*ch1)[pc][to];
             value += (*ch2)[pc][to];

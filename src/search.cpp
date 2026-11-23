@@ -713,7 +713,8 @@ void Search::Worker::clear() {
     // Each thread clears its part of the dynamically-sized shared histories.
     // The constant-size continuation history is initialized by thread 0 of each NUMA node.
     sharedHistory.correctionHistory.clear_range(-5, numaThreadIdx, numaTotal);
-    sharedHistory.pawnHistory.clear_range(-1338, numaThreadIdx, numaTotal);
+    sharedHistory.pawnHistory.clear_range(-1219, numaThreadIdx, numaTotal);
+    sharedHistory.minorPieceHistory.clear_range(355, numaThreadIdx, numaTotal);
 
     if (numaThreadIdx == 0)
         for (bool inCheck : {false, true})
@@ -1003,7 +1004,8 @@ Value Search::Worker::search(
         mainHistory[~us][((ss - 1)->currentMove).raw()] << evalDiff * 11;
         if (!ttHit && type_of(pos.piece_on(prevSq)) != PAWN
             && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << evalDiff * 13;
+            sharedHistory.update_quiet_piece_histories(pos, pos.piece_on(prevSq), prevSq,
+                                                  evalDiff * 35 / 4);
     }
 
 
@@ -1225,7 +1227,8 @@ moves_loop:  // When in check, search starts here
             {
                 int history = (*contHist[0])[movedPiece][move.to_sq()]
                             + (*contHist[1])[movedPiece][move.to_sq()]
-                            + sharedHistory.pawn_entry(pos)[movedPiece][move.to_sq()];
+                            + sharedHistory.pawn_entry(pos)[movedPiece][move.to_sq()]
+                            + sharedHistory.minor_piece_entry(pos)[movedPiece][move.to_sq()] / 2;
 
                 // Continuation history based pruning
                 if (history < -4136 * depth)
@@ -1621,7 +1624,8 @@ moves_loop:  // When in check, search starts here
         mainHistory[~us][((ss - 1)->currentMove).raw()] << scaledBonus * 215 / 32768;
 
         if (type_of(pos.piece_on(prevSq)) != PAWN && ((ss - 1)->currentMove).type_of() != PROMOTION)
-            sharedHistory.pawn_entry(pos)[pos.piece_on(prevSq)][prevSq] << scaledBonus * 324 / 8192;
+            sharedHistory.update_quiet_piece_histories(pos, pos.piece_on(prevSq), prevSq,
+                                                  scaledBonus * 218 / 8192);
     }
 
     // Bonus for prior capture countermove that caused the fail low
@@ -2072,8 +2076,8 @@ void update_quiet_histories(
 
     update_continuation_histories(ss, pos.moved_piece(move), move.to_sq(), bonus * 750 / 1024);
 
-    workerThread.sharedHistory.pawn_entry(pos)[pos.moved_piece(move)][move.to_sq()]
-      << bonus * (bonus > -4 ? 1104 : 459) / 1024;
+    workerThread.sharedHistory.update_quiet_piece_histories(
+      pos, pos.moved_piece(move), move.to_sq(), bonus * (bonus > -4 ? 744 : 310) / 1024);
 }
 }
 
