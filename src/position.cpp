@@ -1496,21 +1496,36 @@ bool Position::see_ge(Move m, int threshold) const {
 
     assert(m.is_ok());
 
-    // Only deal with normal moves, assume others pass a simple SEE
-    if (m.type_of() != NORMAL)
+    // Only deal with normal moves and promotions, assume others pass a simple SEE
+    if (m.type_of() != NORMAL && m.type_of() != PROMOTION)
         return VALUE_ZERO >= threshold;
 
     Square from = m.from_sq(), to = m.to_sq();
+    int    swap = PieceValue[piece_on(to)] - threshold;
 
-    assert(piece_on(from) != NO_PIECE);
+    if (m.type_of() == NORMAL)
+    {
+        if (swap < 0)
+            return false;
 
-    int swap = PieceValue[piece_on(to)] - threshold;
-    if (swap < 0)
-        return false;
+        Piece movedPiece = piece_on(from);
+        assert(movedPiece != NO_PIECE);
 
-    swap = PieceValue[piece_on(from)] - swap;
-    if (swap <= 0)
-        return true;
+        swap = PieceValue[movedPiece] - swap;
+        if (swap <= 0)
+            return true;
+    }
+    else  // PROMOTION
+    {
+        Piece promotedPiece = make_piece(sideToMove, m.promotion_type());
+        swap += PieceValue[promotedPiece] - PawnValue;
+        if (swap < 0)
+            return false;
+
+        swap = PieceValue[promotedPiece] - swap;
+        if (swap <= 0)
+            return true;
+    }
 
     assert(color_of(piece_on(from)) == sideToMove);
     Bitboard occupied  = pieces() ^ from ^ to;  // xoring to is important for pinned piece logic
