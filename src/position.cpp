@@ -1519,6 +1519,9 @@ bool Position::see_ge(Move m, int threshold) const {
     Bitboard stmAttackers, bb;
     int      res = 1;
 
+    const Bitboard diagSliders  = pieces(BISHOP, QUEEN);
+    const Bitboard orthoSliders = pieces(ROOK, QUEEN);
+
     while (true)
     {
         stm = ~stm;
@@ -1548,7 +1551,8 @@ bool Position::see_ge(Move m, int threshold) const {
                 break;
             occupied ^= least_significant_square_bb(bb);
 
-            attackers |= attacks_bb(BISHOP, to, occupied) & pieces(BISHOP, QUEEN);
+            if (diagSliders & occupied)
+                attackers |= attacks_bb(BISHOP, to, occupied) & diagSliders;
         }
 
         else if ((bb = stmAttackers & pieces(KNIGHT)))
@@ -1564,7 +1568,8 @@ bool Position::see_ge(Move m, int threshold) const {
                 break;
             occupied ^= least_significant_square_bb(bb);
 
-            attackers |= attacks_bb(BISHOP, to, occupied) & pieces(BISHOP, QUEEN);
+            if (diagSliders & occupied)
+                attackers |= attacks_bb(BISHOP, to, occupied) & diagSliders;
         }
 
         else if ((bb = stmAttackers & pieces(ROOK)))
@@ -1573,7 +1578,8 @@ bool Position::see_ge(Move m, int threshold) const {
                 break;
             occupied ^= least_significant_square_bb(bb);
 
-            attackers |= attacks_bb(ROOK, to, occupied) & pieces(ROOK, QUEEN);
+            if (orthoSliders & occupied)
+                attackers |= attacks_bb(ROOK, to, occupied) & orthoSliders;
         }
 
         else if ((bb = stmAttackers & pieces(QUEEN)))
@@ -1583,9 +1589,11 @@ bool Position::see_ge(Move m, int threshold) const {
             assert(swap >= res);
             occupied ^= least_significant_square_bb(bb);
 
-            const auto [bishopAttacks, rookAttacks] = both_attacks_bb(to, occupied);
-            attackers |=
-              (bishopAttacks & pieces(BISHOP, QUEEN)) | (rookAttacks & pieces(ROOK, QUEEN));
+            if ((diagSliders | orthoSliders) & occupied)
+            {
+                const auto [bishopAttacks, rookAttacks] = both_attacks_bb(to, occupied);
+                attackers |= (bishopAttacks & diagSliders) | (rookAttacks & orthoSliders);
+            }
         }
 
         else  // KING
