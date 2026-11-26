@@ -1082,7 +1082,7 @@ Value Search::Worker::search(
         assert(probCutBeta < VALUE_INFINITE && probCutBeta > beta);
 
         MovePicker mp(pos, ttData.move, probCutBeta - ss->staticEval, &captureHistory);
-        Depth      probCutDepth = depth - (improving ? 5 : 3);
+        Depth      baseDepth = std::max(depth - (improving ? 5 : 3), 0);
 
         while ((move = mp.next_move()) != Move::none())
         {
@@ -1098,10 +1098,25 @@ Value Search::Worker::search(
             // Perform a preliminary qsearch to verify that the move holds
             value = -qsearch<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1);
 
-            // If the qsearch held, perform the regular search
+            // If the qsearch held, perform the regular search at lower depth
+            Depth R            = std::clamp((value - probCutBeta) / 330, 0, baseDepth);
+            Depth probCutDepth = baseDepth - R;
+
             if (value >= probCutBeta && probCutDepth > 0)
-                value = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1, probCutDepth,
+            {
+                // Adjust the ProbCut beta to compensate for the noisier search at lower depth
+                Value adjustedBeta = std::min(probCutBeta + 185 * R, VALUE_INFINITE);
+                value = -search<NonPV>(pos, ss + 1, -adjustedBeta, -adjustedBeta + 1, probCutDepth,
                                        !cutNode);
+
+                if (value < adjustedBeta && R > 0)
+                {
+                    // Do a fallback re-search with the original ProbCut depth and ProbCut beta.
+                    probCutDepth = baseDepth;
+                    value        = -search<NonPV>(pos, ss + 1, -probCutBeta, -probCutBeta + 1,
+                                                  probCutDepth, !cutNode);
+                }
+            }
 
             undo_move(pos, move);
 
