@@ -286,6 +286,8 @@ inline Bitboard Position::xattacks_by(PieceType pt, Color c, Bitboard occupied) 
     if (pt == PAWN)
         return c == WHITE ? pawn_attacks_bb<WHITE>(pieces(WHITE, PAWN))
                           : pawn_attacks_bb<BLACK>(pieces(BLACK, PAWN));
+    else if (pt == KNIGHT)
+        return knight_attacks_bb(pieces(c, KNIGHT));
     else
     {
         Bitboard threats   = 0;

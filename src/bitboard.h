@@ -110,6 +110,8 @@ inline constexpr Bitboard shift(Bitboard b, Direction dir) {
          : dir == NORTH_WEST    ? (b & ~FileABB) << 7
          : dir == SOUTH_EAST    ? (b & ~FileHBB) >> 7
          : dir == SOUTH_WEST    ? (b & ~FileABB) >> 9
+         : dir == EAST + EAST   ? (b & ~(FileGBB | FileHBB)) << 2
+         : dir == WEST + WEST   ? (b & ~(FileABB | FileBBB)) >> 2
                                 : 0;
 }
 
@@ -120,6 +122,20 @@ template<Color C>
 constexpr Bitboard pawn_attacks_bb(Bitboard b) {
     return C == WHITE ? shift(b, NORTH_WEST) | shift(b, NORTH_EAST)
                       : shift(b, SOUTH_WEST) | shift(b, SOUTH_EAST);
+}
+
+// Returns the squares attacked by knights from the squares
+// in the given bitboard.
+constexpr Bitboard knight_attacks_bb(Bitboard b) {
+    const Bitboard left1  = shift(b, WEST);
+    const Bitboard left2  = shift(b, WEST + WEST);
+    const Bitboard right1 = shift(b, EAST);
+    const Bitboard right2 = shift(b, EAST + EAST);
+    const Bitboard h1     = left1 | right1;
+    const Bitboard h2     = left2 | right2;
+
+    return shift(h1, NORTH + NORTH) | shift(h1, SOUTH + SOUTH) | shift(h2, NORTH)
+         | shift(h2, SOUTH);
 }
 
 constexpr Bitboard pawn_single_push_bb(Color c, Bitboard b) {

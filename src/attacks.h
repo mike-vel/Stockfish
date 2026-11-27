@@ -200,13 +200,6 @@ constexpr Bitboard sliding_attack(PieceType pt, Square sq, Bitboard occupied) {
     return attacks;
 }
 
-constexpr Bitboard knight_attack(Square sq) {
-    Bitboard b = {};
-    for (int step : {-17, -15, -10, -6, 6, 10, 15, 17})
-        b |= safe_destination(sq, step);
-    return b;
-}
-
 constexpr Bitboard king_attack(Square sq) {
     Bitboard b = {};
     for (int step : {-9, -8, -7, -1, 1, 7, 8, 9})
@@ -223,7 +216,7 @@ constexpr Bitboard pseudo_attacks(PieceType pt, Square sq) {
     case PieceType::QUEEN :
         return sliding_attack(PieceType::ROOK, sq, 0) | sliding_attack(PieceType::BISHOP, sq, 0);
     case PieceType::KNIGHT :
-        return knight_attack(sq);
+        return knight_attacks_bb(square_bb(sq));
     case PieceType::KING :
         return king_attack(sq);
     default :
