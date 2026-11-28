@@ -1319,6 +1319,15 @@ moves_loop:  // When in check, search starts here
                 extension = -3;
         }
 
+        // Check extensions
+        // Check extensions near the horizon helps fight the horizon effect.
+        // Without it, responses would be resolved near or at the quiescence
+        // search.
+        if (depth < 4 && givesCheck && !ss->inCheck && extension == 0)
+        {
+            extension = 1;
+        }
+
         u64 nodeCount = rootNode ? u64(nodes) : 0;
 
         // Step 17. Make the move
